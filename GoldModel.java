@@ -1,7 +1,9 @@
-package orig2011.v3;
+package orig2011.v7;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.event.KeyEvent;
+import java.beans.PropertyChangeListener;
+import java.beans.PropertyChangeSupport;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -16,7 +18,7 @@ import java.util.List;
 * of remaining coins. The game is won when all coins are collected and lost when
 * collector leaves game board.
 */
-public class GoldModel extends GameUtils {
+public class GoldModel implements GameModel {
 	public enum Directions {
 		EAST(1, 0),
 		WEST(-1, 0),
@@ -82,25 +84,28 @@ public class GoldModel extends GameUtils {
 	private int score;
 
 	private GameTile[][] board;
+    private final PropertyChangeSupport pcs = new PropertyChangeSupport(this);
+    private final GameUtils util = new GameUtils();
+
 
 	/**
 	 * Create a new model for the gold game.
 	 */
 
 	public GoldModel() {
-		Dimension size = getGameboardSize();
+		Dimension size = util.getGameboardSize();
 		this.board = new GameTile[size.width][size.height];
 		// Blank out the whole gameboard
 
 		for (int i = 0; i < size.width; i++) {
 			for (int j = 0; j < size.height; j++) {
-				setGameboardState(i, j, BLANK_TILE);
+				util.setGameboardState(i, j, BLANK_TILE, board);
 			}
 		}
 
 		// Insert the collector in the middle of the gameboard.
 		this.collectorPos = new Position(size.width / 2, size.height / 2);
-		setGameboardState(this.collectorPos, COLLECTOR_TILE);
+		util.setGameboardState(this.collectorPos, COLLECTOR_TILE, board);
 
 		// Insert coins into the gameboard.
 		for (int i = 0; i < COIN_START_AMOUNT; i++) {
@@ -114,7 +119,7 @@ public class GoldModel extends GameUtils {
 
 	private void addCoin() {
 		Position newCoinPos;
-		Dimension size = getGameboardSize();
+		Dimension size = util.getGameboardSize();
 
 		// Loop until a blank position is found and ...
 		do {
@@ -123,7 +128,7 @@ public class GoldModel extends GameUtils {
 		} while (!isPositionEmpty(newCoinPos));
 
 		// ... add a new coin to the empty tile.
-		setGameboardState(newCoinPos, COIN_TILE);
+		util.setGameboardState(newCoinPos, COIN_TILE, board);
 		this.coins.add(newCoinPos);
 	}
 
@@ -188,16 +193,17 @@ public class GoldModel extends GameUtils {
 		updateDirection(lastKey);
 
 		// Erase the previous position.
-		setGameboardState(this.collectorPos, BLANK_TILE);
+		util.setGameboardState(this.collectorPos, BLANK_TILE, board);
 
 		// Change collector position.
 		this.collectorPos = getNextCollectorPos();
-		if (isOutOfBounds(this.collectorPos)) {
+		if (isOutOfBounds(this.collectorPos)) {		
 			throw new GameOverException(this.score);
+
 		}
 
 		// Draw collector at new position.
-		setGameboardState(this.collectorPos, COLLECTOR_TILE);
+		util.setGameboardState(this.collectorPos, COLLECTOR_TILE, board);
 		// Remove the coin at the new collector position (if any)
 		if (this.coins.remove(this.collectorPos)) {
 			this.score++;
@@ -211,10 +217,12 @@ public class GoldModel extends GameUtils {
 		// Remove one of the coins
 		Position oldCoinPos = this.coins.get(0);
 		this.coins.remove(0);
-		setGameboardState(oldCoinPos, BLANK_TILE);
+		util.setGameboardState(oldCoinPos, BLANK_TILE, board);
 		
 		// Add a new coin (simulating moving one coin)
 		addCoin();
+		pcs.firePropertyChange("Gold", collectorPos.getX() + collectorPos.getY(), 
+				(collectorPos.getX() + 1) + collectorPos.getY());
 	}
 
 	/**
@@ -224,26 +232,31 @@ public class GoldModel extends GameUtils {
 	 */
 
 	private boolean isOutOfBounds(Position pos) {
-		return pos.getX() < 0 || pos.getX() >= getGameboardSize().width
-				|| pos.getY() < 0 || pos.getY() >= getGameboardSize().height;
+		return pos.getX() < 0 || pos.getX() >= util.getGameboardSize().width
+				|| pos.getY() < 0 || pos.getY() >= util.getGameboardSize().height;
 	}
 	
-	protected void setGameboardState(Position pos, GameTile tile) {
-		setGameboardState(pos.getX(), pos.getY(), tile);
-	}
-	
-	protected void setGameboardState(final int x, final int y, final GameTile tile) {
-		this.board[x][y] = tile;
-	}
-
-	@Override
 	public GameTile getGameboardState(Position pos) {
-		return getGameboardState(pos.getX(), pos.getY());
+		return board[pos.getX()][pos.getY()];
 	}
 
-	@Override
 	public GameTile getGameboardState(int x, int y) {
 		return board[x][y];
 	}
 	
+
+	@Override
+	public void addObserver(PropertyChangeListener observer) {
+		this.pcs.addPropertyChangeListener(observer);	
+	}
+
+	@Override
+	public void removeObserver(PropertyChangeListener observer) {
+		this.pcs.removePropertyChangeListener(observer);		
+	}
+	
+	@Override
+	public int getUpdateSpeed() {
+		return 150;
+	}
 }

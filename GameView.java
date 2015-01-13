@@ -1,10 +1,13 @@
-package orig2011.v3;
+package orig2011.v7;
 
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Image;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
+
 
 import javax.swing.JComponent;
 
@@ -12,7 +15,7 @@ import javax.swing.JComponent;
  * A view Component suitable for inclusion in an AWT Frame. Paints itself by
  * consulting its model.
  */
-public class GameView extends JComponent {
+public class GameView extends JComponent implements PropertyChangeListener {
 
 	/** Size of game model */
 	private final Dimension modelSize;
@@ -28,7 +31,8 @@ public class GameView extends JComponent {
 
 	/** Image representing the offscreen graphics */
 	private Image offscreenImage;
-
+	
+	
 	/**
 	 * Creates a view where each GameObject has side length 40 pixels..
 	 */
@@ -55,8 +59,13 @@ public class GameView extends JComponent {
 	 * Updates the view with a new model.
 	 */
 	public void setModel(final GameModel model) {
+		if (this.model != null) {
+			model.removeObserver(this);
+		}
 		this.model = model;
+		model.addObserver(this);
 		repaint();
+
 	}
 
 	/**
@@ -92,7 +101,6 @@ public class GameView extends JComponent {
 		g.fillRect(0, 0, getWidth(), getHeight());
 
 		if (this.model != null) {
-
 			// Draw all tiles by going over them x-wise and y-wise.
 			for (int i = 0; i < this.modelSize.width; i++) {
 				for (int j = 0; j < this.modelSize.height; j++) {
@@ -108,5 +116,10 @@ public class GameView extends JComponent {
 			final char[] message = "No model chosen.".toCharArray(); 
 			g.drawChars(message, 0, message.length, 50, 50);
 		}
+	}
+
+	@Override
+	public void propertyChange(PropertyChangeEvent evt) {
+		repaint();
 	}
 }

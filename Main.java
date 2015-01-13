@@ -1,7 +1,6 @@
-package orig2011.v3;
+package orig2011.v7;
 
 import javax.swing.JFrame;
-import orig2011.v0.*;
 
 /**
  * This class creates an AWT window which will contain the game.

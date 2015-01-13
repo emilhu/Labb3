@@ -1,4 +1,4 @@
-package orig2011.v3;
+package orig2011.v7;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -106,6 +106,7 @@ public class GUIView extends JPanel {
 				// new game model
 				GUIView.this.gameController.stopGame();
 				GUIView.this.gameController.startGame(gameModel);
+				GUIView.this.gameView.setModel(gameModel);
 				GUIView.this.gameView.requestFocus();
 			}
 		}

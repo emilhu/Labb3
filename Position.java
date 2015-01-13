@@ -1,4 +1,4 @@
-package orig2011.v3;
+package orig2011.v7;
 
 /**
  * Immutable class describing integer 2D-points.

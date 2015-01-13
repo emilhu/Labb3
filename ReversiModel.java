@@ -1,8 +1,10 @@
-package orig2011.v3;
+package orig2011.v7;
 
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.event.KeyEvent;
+import java.beans.PropertyChangeListener;
+import java.beans.PropertyChangeSupport;
 
 
 /**
@@ -12,7 +14,7 @@ import java.awt.event.KeyEvent;
  * @author evensen
  * 
  */
-public class ReversiModel extends GameUtils {
+public class ReversiModel implements GameModel {
 	public enum Direction {
 			EAST(1, 0),
 			SOUTHEAST(1, 1),
@@ -22,7 +24,8 @@ public class ReversiModel extends GameUtils {
 			NORTHWEST(-1, -1),
 			NORTH(0, -1),
 			NORTHEAST(1, -1),
-			NONE(0, 0);
+			NONE(0, 0),
+			WAIT(0, 0);
 
 		private final int xDelta;
 		private final int yDelta;
@@ -86,6 +89,8 @@ public class ReversiModel extends GameUtils {
 	private final int width;
 	private final int height;
 	private boolean gameOver;
+	private PropertyChangeSupport pcs = new PropertyChangeSupport(this);
+	private GameUtils util = new GameUtils();
 
 	public ReversiModel() {
 		this.width = Constants.getGameSize().width;
@@ -96,7 +101,7 @@ public class ReversiModel extends GameUtils {
 		// Blank out the whole gameboard...
 		for (int i = 0; i < this.width; i++) {
 			for (int j = 0; j < this.height; j++) {
-				setGameboardState(i, j, blankTile);
+				util.setGameboardState(i, j, blankTile, gameBoard);
 				this.board[i][j] = PieceColor.EMPTY;
 			}
 		}
@@ -107,13 +112,13 @@ public class ReversiModel extends GameUtils {
 		int midX = this.width / 2 - 1;
 		int midY = this.height / 2 - 1;
 		this.board[midX][midY] = PieceColor.WHITE;
-		setGameboardState(midX, midY, whiteGridTile);
+		util.setGameboardState(midX, midY, whiteGridTile, gameBoard);
 		this.board[midX + 1][midY + 1] = PieceColor.WHITE;
-		setGameboardState(midX + 1, midY + 1, whiteGridTile);
+		util.setGameboardState(midX + 1, midY + 1, whiteGridTile, gameBoard);
 		this.board[midX + 1][midY] = PieceColor.BLACK;
-		setGameboardState(midX + 1, midY, blackGridTile);
+		util.setGameboardState(midX + 1, midY, blackGridTile, gameBoard);
 		this.board[midX][midY + 1] = PieceColor.BLACK;
-		setGameboardState(midX, midY + 1, blackGridTile);
+		util.setGameboardState(midX, midY + 1, blackGridTile, gameBoard);
 
 		// Set the initial score.
 		this.whiteScore = 2;
@@ -156,7 +161,7 @@ public class ReversiModel extends GameUtils {
 				return Direction.SOUTH;
 			case KeyEvent.VK_SPACE:
 				tryPlay();
-				return Direction.NONE;
+				return Direction.WAIT;
 			default:
 				// Do nothing if another key is pressed
 				return Direction.NONE;
@@ -173,13 +178,12 @@ public class ReversiModel extends GameUtils {
 			}
 			if (canTurn(this.turn, this.cursorPos)) {
 				turnOver(this.turn, this.cursorPos);
-				setGameboardState(this.cursorPos, t);
+				util.setGameboardState(this.cursorPos, t, gameBoard);
 				this.board[this.cursorPos.getX()][this.cursorPos.getY()] =
 						(this.turn == Turn.BLACK
 								? PieceColor.BLACK
-								: PieceColor.WHITE);
-				System.out.println("Bong! White: " + this.whiteScore
-						+ "\tBlack: " + this.blackScore);
+								: PieceColor.WHITE);				
+				pcs.firePropertyChange("TurnChange", 1, 0);
 				this.turn = Turn.nextTurn(this.turn);
 			}
 			if (!canTurn(this.turn)) {
@@ -187,8 +191,8 @@ public class ReversiModel extends GameUtils {
 					this.gameOver = true;
 					return;
 				}
-
 				this.turn = Turn.nextTurn(this.turn);
+
 			}
 		}
 
@@ -222,9 +226,9 @@ public class ReversiModel extends GameUtils {
 						y -= yDelta;
 						while (!(x == cursorPos.getX() && y == cursorPos.getY())) {
 							this.board[x][y] = myColor;
-							setGameboardState(x, y,
+							util.setGameboardState(x, y,
 									myColor == PieceColor.BLACK ? blackGridTile
-											: whiteGridTile);
+											: whiteGridTile, gameBoard);
 							x -= xDelta;
 							y -= yDelta;
 							this.blackScore += blackResult;
@@ -236,6 +240,7 @@ public class ReversiModel extends GameUtils {
 					}
 					x += xDelta;
 					y += yDelta;
+
 				}
 			}
 		}
@@ -325,7 +330,7 @@ public class ReversiModel extends GameUtils {
 	public void gameUpdate(final int lastKey) throws GameOverException {
 		if (!this.gameOver) {
 			Position nextCursorPos = getNextCursorPos(updateDirection(lastKey));
-			Dimension boardSize = getGameboardSize();
+			Dimension boardSize = util.getGameboardSize();
 			int nextX =
 					Math.max(0,
 							Math.min(nextCursorPos.getX(), boardSize.width - 1));
@@ -337,6 +342,7 @@ public class ReversiModel extends GameUtils {
 			removeCursor(this.cursorPos);
 			this.cursorPos = nextCursorPos;
 			updateCursor();
+			pcs.firePropertyChange("Key", updateDirection(lastKey), Direction.NONE);
 		} else {
 			throw new GameOverException(this.blackScore - this.whiteScore);
 		}
@@ -350,7 +356,7 @@ public class ReversiModel extends GameUtils {
 			if (c.getTop() == cursorRedTile ||
 					c.getTop() == cursorWhiteTile ||
 					c.getTop() == cursorBlackTile) {
-				setGameboardState(oldCursorPos, c.getBottom());
+				util.setGameboardState(oldCursorPos, c.getBottom(), gameBoard);
 			}
 		}
 	}
@@ -367,26 +373,31 @@ public class ReversiModel extends GameUtils {
 		} else {
 			cursoredTile = new CompositeTile(t, cursorRedTile);
 		}
-		setGameboardState(this.cursorPos, cursoredTile);
+		util.setGameboardState(this.cursorPos, cursoredTile, gameBoard);
 	}
 	
-	public void setGameboardState(Position pos, GameTile tile) {
-		setGameboardState(pos.getX(), pos.getY(), tile);
-	}
-	
-	protected void setGameboardState(final int x, final int y,
-			final GameTile tile) {
-		this.gameBoard[x][y] = tile;
-	}
-
-	@Override
 	public GameTile getGameboardState(Position pos) {
-		return getGameboardState(pos.getX(), pos.getY());
+		return gameBoard[pos.getX()][pos.getY()];
+	}
+
+	public GameTile getGameboardState(int x, int y) {
+		return gameBoard[x][y];
+	}
+	
+	@Override
+	public void addObserver(PropertyChangeListener observer) {
+		this.pcs.addPropertyChangeListener(observer);
+		System.out.println(pcs.getPropertyChangeListeners());
 	}
 
 	@Override
-	public GameTile getGameboardState(int x, int y) {
-		return this.gameBoard[x][y];
+	public void removeObserver(PropertyChangeListener observer) {
+		this.pcs.removePropertyChangeListener(observer);	
+	}
+	
+	@Override
+	public int getUpdateSpeed() {
+		return 0;
 	}
 
 }

@@ -1,4 +1,4 @@
-package orig2011.v3;
+package orig2011.v7;
 /**
 * Factory class for available games.
 */
@@ -24,7 +24,9 @@ public GameModel createGame(final String gameName) {
 	if (gameName.equals("Gold")) {
 		return new GoldModel();
 	} else if (gameName.equals("Reversi")){
-		return new ReversiModel();
+		ReversiModel reversi = new ReversiModel();
+		new ReversiScoreView(reversi);
+		return reversi;
 	}
 	throw new IllegalArgumentException("No such game: " + gameName);
 	}
